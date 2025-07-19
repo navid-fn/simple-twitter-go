@@ -1,18 +1,23 @@
 package api
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
+	"simple-http-server/internal/store"
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
 )
 
 type PostHandler struct {
+	postStore store.PostStore
 }
 
-func NewPostHandler() *PostHandler {
-	return &PostHandler{}
+func NewPostHandler(postStore store.PostStore) *PostHandler {
+	return &PostHandler{
+		postStore: postStore,
+	}
 }
 
 func (uh *PostHandler) HandleGetPostByID(w http.ResponseWriter, r *http.Request) {
@@ -30,11 +35,25 @@ func (uh *PostHandler) HandleGetPostByID(w http.ResponseWriter, r *http.Request)
 	fmt.Fprintf(w, "Post ID data: %d", userID)
 }
 
-func (uh *PostHandler) HandleCreatePost(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "Post Created.")
+func (ph *PostHandler) HandleCreatePost(w http.ResponseWriter, r *http.Request) {
+	var post store.Post
+	err := json.NewDecoder(r.Body).Decode(&post)
+	if err != nil {
+		fmt.Println("Error Occurred..", err)
+		http.Error(w, "Error has been Occurred...", http.StatusInternalServerError)
+	}
+	createdPost, err := ph.postStore.CreatePost(&post)
+	if err != nil {
+		fmt.Println("Error Occurred..", err)
+		http.Error(w, "Error has been Occurred...", http.StatusInternalServerError)
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(createdPost)
+	return
+
 }
 
-func (uh *PostHandler) HandleUpdatePostByID(w http.ResponseWriter, r *http.Request) {
+func (ph *PostHandler) HandleUpdatePostByID(w http.ResponseWriter, r *http.Request) {
 	paramPostID := chi.URLParam(r, "id")
 	if paramPostID == "" {
 		http.NotFound(w, r)
@@ -50,8 +69,8 @@ func (uh *PostHandler) HandleUpdatePostByID(w http.ResponseWriter, r *http.Reque
 
 }
 
-func (uh *PostHandler) HandleDeletePostByID(w http.ResponseWriter, r *http.Request) {
-paramPostID := chi.URLParam(r, "id")
+func (ph *PostHandler) HandleDeletePostByID(w http.ResponseWriter, r *http.Request) {
+	paramPostID := chi.URLParam(r, "id")
 	if paramPostID == "" {
 		http.NotFound(w, r)
 		return
